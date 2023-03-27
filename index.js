@@ -1,128 +1,166 @@
 import express from "express";
 import morgan from "morgan";
-import {Server as SocketServer} from "socket.io";
+import { Server as SocketServer } from "socket.io";
 import http from "http";
 import cors from "cors";
-import {PORT} from "./config.js";
+import { PORT } from "./config.js";
+import dotenv from 'dotenv';
+import amqp from "amqplib";
 
 dotenv.config();
 
-const hostname=process.env.HOST||'localhost';
-const protocol=process.env.PROTOCOL;
-const user=process.env.USER;
-const password=process.env.PASSWORD;
-const port=process.env.PORT;
+const hostname = process.env.HOST || "localhost";
+const protocol = process.env.PROTOCOL;
+const user = process.env.USER;
+const password = process.env.PASSWORD;
+const port = process.env.PORT;
 
+const queueLoginRes = process.env.QUEUE_RESPONSE_LOGIN;
+const queueRegisterRes = process.env.QUEUE_RESPONSE_REG;
+const queueProfileRes = process.env.QUEUE_RESPONSE_PROFILE;
+const queueIrrigationRes = process.env.QUEUE_RESPONSE_IRRIGATION;
+const queueSystemnRes = process.env.QUEUE_RESPONSE_SYSTEM;
 
-
-const rabbitSettings={
-    protocol: protocol,
-    hostname: hostname,
-    port: port,
-    username: user,
-    password: password
-}
-const connected=null;
+const rabbitSettings = {
+  protocol: protocol,
+  hostname: hostname,
+  port: port,
+  username: user,
+  password: password,
+};
 
 async function connect() {
-    console.log(hostname);
-    try {
-        connected=await amqp.connect(rabbitSettings);
-        console.log('conexion exitosa');
-
-    } catch (error) {
-        console.error("Error =>", error);
-    }
+  try {
+    const connected = await amqp.connect(rabbitSettings);
+    console.log("conexion exitosa");
+    return connected;
+  } catch (error) {
+    console.error("Error =>", error);
+    return null;
+  }
 }
 
-connect();
-
+async function createChannel(connection, queue) {
+  const channel = await connection.createChannel();
+  await channel.assertQueue(queue);
+  return channel;
+}
 
 const app = express();
-const server=http.createServer(app); 
-const io=new SocketServer(server, {
-    cors:{
-        origin: ['http://127.0.0.1:5173', '']
-    }
+const server = http.createServer(app);
+const io = new SocketServer(server, {
+  cors: {
+    origin: ["http://127.0.0.1:5173", ""],
+  },
 });
-
 
 app.use(cors());
 app.use(morgan("dev"));
 const listSockets = {};
-const users = [];
 
-io.on('connection', (socket)=>{
-    console.log("new user", socket.id)
+io.on("connection", async (socket) => {
+  console.log("new user", socket.id);
 
-    if (listSockets[socket.id] === undefined) {
-        listSockets[socket.id] = {
-          idSocket: socket.id,
-          module: "",
-          id: 0,
-        };
-    }
+  if (listSockets[socket.id] === undefined) {
+    listSockets[socket.id] = {
+      idSocket: socket.id,
+      module: "",
+      id: 0,
+    };
+  }
 
-    socket.on('identify',(idObject)=>{
-        listSockets[idObject.id].id=idObject.id;
-        listSockets[idObject.id].module=idObject.module;
-        console.log(listSockets[idObject.id].id,":",listSockets[idObject.id].module);
-    })
+  const connection = await connect();
 
+  const channelLoginRes = await createChannel(connection, queueLoginRes);
+  const channelRegisternRes = await createChannel(connection, queueRegisterRes);
+  const channelProfileRes = await createChannel(connection, queueProfileRes);
+  const channelIrrigationRes = await createChannel(connection,queueIrrigationRes);
+  const channeSystemRes = await createChannel(connection, queueSystemnRes);
 
+  channelLoginRes.consume(queueLoginRes, (mensaje) => {
+    const objectRecieved = JSON.parse(mensaje.content.toString());
+    console.log("received in login",objectRecieved);
+    channelLoginRes.ack(mensaje);
+  });
 
-    socket.on('login', async (form)=>{
-        const queue=process.env.QUEUE_REQUEST_LOGIN;
-        sendForm(form, queue)
-        console.log("login enviado")
-    })
+  channelRegisternRes.consume(queueRegisterRes, (mensaje) => {
+    const objectRecieved = JSON.parse(mensaje.content.toString());
+    console.log("received in register",objectRecieved);
+    channelRegisternRes.ack(mensaje);
+  });
 
-    socket.on('systemAsk', async (id)=>{
-        const queue=process.env.QUEUE_REQUEST_IRRIGATION;
-        sendAsk(queue,id);
-        console.log("peticion enviado")
-    });
-    
-    socket.on('irrigationAsk', async (id)=>{
-        const queue=process.env.QUEUE_REQUEST_IRRIGATION;
-        sendAsk(queue,id);
-        console.log("peticion enviado")
-    });
-
-    socket.on('updateProfile', async (form)=>{
-        const queue=process.env.QUEUE_REQUEST_PROFILE;
-        sendForm(form, queue)
-        console.log("registro enviado")
-    });
-    
-    socket.on('regUser', (form)=>{
-        const queue=process.env.QUEUE_REQUEST_REG;
-        sendForm(form, queue)
-        console.log("registro enviado")
-    });
+  channelProfileRes.consume(queueProfileRes, (mensaje) => {
+    const objectRecieved = JSON.parse(mensaje.content.toString());
+    console.log("received in profile",objectRecieved);
+    channelProfileRes.ack(mensaje);
+  });
   
-    socket.on('disconected', ()=>{
-        listSockets[socket.id] = undefined;
-        console.log(socket.id, "disconnected")
-        socket.disconnect(true);
-    })
+  channelIrrigationRes.consume(queueIrrigationRes, (mensaje) => {
+    const objectRecieved = JSON.parse(mensaje.content.toString());
+    console.log("received in irrigation",objectRecieved);
+    channelIrrigationRes.ack(mensaje);
+  });
 
+  channeSystemRes.consume(queueSystemnRes, (mensaje) => {
+    const objectRecieved = JSON.parse(mensaje.content.toString());
+    console.log("received in system",objectRecieved);
+    channeSystemRes.ack(mensaje);
+  });
 
- 
-})
+  socket.on("identify", (idObject) => {
+    listSockets[idObject.id].id = idObject.id;
+    listSockets[idObject.id].module = idObject.module;
+    console.log(
+      listSockets[idObject.id].id,
+      ":",
+      listSockets[idObject.id].module
+    );
+  });
 
+  socket.on("login", async (form) => {
+    const queue=process.env.QUEUE_REQUEST_LOGIN;
+    sendQueue(form, queue);
+    console.log("login enviado");
+  });
 
-const sendForm=async(form, queue)=>{
-    const channel=await connected.createChannel(queue);
-    const messageString = JSON.stringify(form);
-    channel.sendToQueue(queueLoginRequest, Buffer.from(messageString));
-}
-const sendAsk=async(id, queue)=>{
-    const channel=await connected.createChannel(queue);
-    channel.sendToQueue(queueLoginRequest, Buffer.from(id));
-}
+  socket.on("systemAsk", async (id) => {
+    const queue=process.env.QUEUE_REQUEST_SYSTEM;
+    sendQueue(id, queue);
+    console.log("peticion enviado");
+  });
 
+  socket.on("irrigationAsk", async (id) => {
+    const queue = process.env.QUEUE_REQUEST_IRRIGATION;
+    sendQueue(id, queue);
+    console.log("peticion enviado");
+  });
+
+  socket.on("updateProfile", async (form) => {
+    const queue = process.env.QUEUE_REQUEST_PROFILE;
+    sendQueue(form, queue);
+    console.log("registro enviado");
+  });
+
+  socket.on("regUser", (form) => {
+    const queue = process.env.QUEUE_REQUEST_REG;
+    sendQueue(form, queue);
+    console.log("registro enviado");
+  });
+
+  socket.on("disconected", () => {
+    listSockets[socket.id] = undefined;
+    console.log(socket.id, "disconnected");
+    socket.disconnect(true);
+  });
+});
+
+const sendQueue = async (object, queue) => {
+  const connected = await connect();
+  const channel = await connected.createChannel(queue);
+  console.log(object);
+  channel.sendToQueue(queue, Buffer.from(JSON.stringify(object)));
+};
 
 server.listen(PORT);
 
-console.log("Server stared on port ",PORT);
+console.log("Server stared on port ", PORT);
