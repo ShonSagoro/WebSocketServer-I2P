@@ -73,7 +73,6 @@ io.on("connection", async (socket) => {
 
   const channelLoginRes = await createChannel(connection, queueLoginRes);
   const channelRegisternRes = await createChannel(connection, queueRegisterRes);
-  const channelProfileRes = await createChannel(connection, queueProfileRes);
   const channelIrrigationRes = await createChannel(connection,queueIrrigationRes);
   const channeSystemRes = await createChannel(connection, queueSystemnRes);
 
@@ -85,15 +84,15 @@ io.on("connection", async (socket) => {
 
   channelRegisternRes.consume(queueRegisterRes, (mensaje) => {
     const objectRecieved = JSON.parse(mensaje.content.toString());
-    console.log("received in register",objectRecieved);
+    if(objectRecieved===false){
+      console.log("user exist")
+    }else{
+      console.log("received in register",objectRecieved);
+    }
     channelRegisternRes.ack(mensaje);
   });
 
-  channelProfileRes.consume(queueProfileRes, (mensaje) => {
-    const objectRecieved = JSON.parse(mensaje.content.toString());
-    console.log("received in profile",objectRecieved);
-    channelProfileRes.ack(mensaje);
-  });
+
   
   channelIrrigationRes.consume(queueIrrigationRes, (mensaje) => {
     const objectRecieved = JSON.parse(mensaje.content.toString());
@@ -133,12 +132,6 @@ io.on("connection", async (socket) => {
     const queue = process.env.QUEUE_REQUEST_IRRIGATION;
     sendQueue(id, queue);
     console.log("peticion enviado");
-  });
-
-  socket.on("updateProfile", async (form) => {
-    const queue = process.env.QUEUE_REQUEST_PROFILE;
-    sendQueue(form, queue);
-    console.log("registro enviado");
   });
 
   socket.on("regUser", (form) => {
