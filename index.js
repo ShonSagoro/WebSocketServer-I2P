@@ -17,7 +17,6 @@ const port = process.env.PORT;
 
 const queueLoginRes = process.env.QUEUE_RESPONSE_LOGIN;
 const queueRegisterRes = process.env.QUEUE_RESPONSE_REG;
-const queueProfileRes = process.env.QUEUE_RESPONSE_PROFILE;
 const queueIrrigationRes = process.env.QUEUE_RESPONSE_IRRIGATION;
 const queueSystemnRes = process.env.QUEUE_RESPONSE_SYSTEM;
 
@@ -79,15 +78,19 @@ io.on("connection", async (socket) => {
   channelLoginRes.consume(queueLoginRes, (mensaje) => {
     const objectRecieved = JSON.parse(mensaje.content.toString());
     console.log("received in login",objectRecieved);
+    socket.emit('loginRes',objectRecieved);
     channelLoginRes.ack(mensaje);
   });
 
   channelRegisternRes.consume(queueRegisterRes, (mensaje) => {
     const objectRecieved = JSON.parse(mensaje.content.toString());
     if(objectRecieved===false){
+      objectRecieved={status: false, msg: "User exist"}
       console.log("user exist")
+      socket.emit('registerRes',objectRecieved);
     }else{
       console.log("received in register",objectRecieved);
+      socket.emit('registerRes',objectRecieved);
     }
     channelRegisternRes.ack(mensaje);
   });
@@ -97,12 +100,14 @@ io.on("connection", async (socket) => {
   channelIrrigationRes.consume(queueIrrigationRes, (mensaje) => {
     const objectRecieved = JSON.parse(mensaje.content.toString());
     console.log("received in irrigation",objectRecieved);
+    socket.emit('irrigationRes',objectRecieved);
     channelIrrigationRes.ack(mensaje);
   });
 
   channeSystemRes.consume(queueSystemnRes, (mensaje) => {
     const objectRecieved = JSON.parse(mensaje.content.toString());
     console.log("received in system",objectRecieved);
+    socket.emit('systemRes',objectRecieved);
     channeSystemRes.ack(mensaje);
   });
 
