@@ -138,14 +138,14 @@ channelIrrigationRes.consume(queueIrrigationRes, (response) => {
   const objectRecieved = JSON.parse(response.content.toString());
   console.log("received in irrigation",objectRecieved);
   
-  io.to(objectRecieved.socketId).emit('irrigationRes', objectRecieved);
+  socket.broadcast.emit('irrigationRes', objectRecieved);
   channelIrrigationRes.ack(response);
 });
 
 channelSystemRes.consume(queueSystemRes, (response) => {
   const objectRecieved = JSON.parse(response.content.toString());
   console.log("received in system",objectRecieved);
-  io.to(objectRecieved.socketId).emit('systemRes', objectRecieved);
+  socket.broadcast.emit('systemRes', objectRecieved);
   channelSystemRes.ack(response);
 });
 
