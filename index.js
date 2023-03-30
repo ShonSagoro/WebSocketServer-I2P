@@ -51,9 +51,7 @@ const app = express();
 const server = http.createServer(app);
 const io=new SocketServer(server, {
   cors:{
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    origin: "*"
   }
 });
 
@@ -219,6 +217,6 @@ const sendQueue = async (object, queue) => {
   channel.sendToQueue(queue, Buffer.from(JSON.stringify(object)));
 };
 
-server.listen(PORT,'127.0.0.1');
+server.listen(PORT);
 
 console.log("Server stared on port ", PORT);
